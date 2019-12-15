@@ -1,0 +1,9 @@
+venv
+credentials.json
+parser_log.log
+__pycache__
+*.pyc
+*.html
+*.pickle
+.vscode
+.idea
