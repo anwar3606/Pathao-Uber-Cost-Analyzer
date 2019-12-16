@@ -18,7 +18,7 @@ data_columns = [
     "end_time",
     "start_location",
     "end_location",
-    "time_time",
+    "trip_time",
     "time_cost",
     "distance",
     "rider",
@@ -55,6 +55,7 @@ class GmailParser:
 
     def remember_email_id(self, email_id):
         self.remember_email_id_file.write(email_id + "\n")
+        self.parsed_emails.append(email_id)
 
     def find_new_email_ids(self, emails):
         return list((set([e['id'] for e in emails]) - set(self.parsed_emails)))
@@ -66,7 +67,7 @@ class GmailParser:
         data = {}
         data['price'] = soup.select_one(
             '.totalPrice.topPrice.tal.black').text.replace("Tk", "")
-        data['distance'], data['time'], data['car_type'] = [
+        data['distance'], data['time_cost'], data['car_type'] = [
             td.text for td in soup.select('.tripInfo.tal')]
         (data['start_time'], data['start_location']), (data['end_time'], data['end_location']) = [
             x.text.split('|') for x in soup.select('.address.gray.vam.tal')]
@@ -114,14 +115,14 @@ class GmailParser:
                 res = re.findall(element, page_text)[0]
             except Exception:
                 continue
-            key = res[0].lower().replace(" ", "_")
+            key = res[0].lower().strip().replace(" ", "_")
             if key == "time":
                 key = "trip_time"
             data[key] = res[1]
 
         res = re.findall(
             "(License Plate):\s(.*?)\s\s.*?(\w+)\s+(.*?)\|\s+(.*?)\s\s", page_text)[0]
-        data['license_plate'], _, data['distance'], data['time'] = res[1:]
+        data['license_plate'], _, data['distance'], data['trip_time'] = res[1:]
 
         res = re.findall("(\d\d:\d\d[ap]m)\s\s(.*?)\s\s", page_text)
         (data['start_time'], data['start_location']
@@ -169,33 +170,36 @@ class GmailParser:
 
             else:
                 if key in data_columns:
-                    new_data[key] = value.strip()
+                    new_data[key.strip()] = value.strip()
                 else:
-                    logging.error("Invalid Data Found! %s:%s", key, value)
+                    logging.error("Invalid Data Found! Email ID:%s. %s:%s", data['id'], key, value)
 
         for key, value in new_data.items():
             if key in [
                 "price",
                 "subtotal",
                 "discounts",
-                "canceled_trip"
+                "canceled_trip",
                 "trip_fare",
                 "base_fare",
                 "rounding",
                 "credits",
                 "change",
             ]:
-                amount = re.findall(r'(\d+\.\d+)', value)[0]
+                amount = re.findall(r'(\d+(\.\d+)?)', value)[0]
                 new_data[key] = amount
 
         return new_data
 
-    def get_uber_emails(self):
+    def get_uber_emails(self, date=None):
         logging.info("Getting uber emails...")
+
         options = {
             "userId": 'me',
-            "q": 'uber.bangladesh@uber.com',
+            "q": 'from:(uber.bangladesh@uber.com)',
         }
+        if date:
+            options['q'] += " before:" + date
 
         emails = list(self.gmail_api.get_email_list(options=options))
         filtered_email_ids = self.find_new_email_ids(emails)
@@ -208,19 +212,25 @@ class GmailParser:
         else:
             write_header = True
 
+
+        old_date = datetime.datetime.now()
+
         with open("uber.csv", 'a', newline="") as csv_file:
             writer = csv.DictWriter(csv_file, fieldnames=data_columns)
             if write_header:
                 writer.writeheader()
             print("")
             for idx, data in enumerate(uber_trip_data):
-                print("\rParsed:", idx+1)
+                print("\rParsed:", idx+1, end="")
                 if len(data) > 1:
                     writer.writerow(self.cleanup_data(data))
+                    new_date = datetime.datetime.strptime(data['date'], "%a %b %d %H:%M:%S %Y")
+                    if (old_date - new_date).total_seconds() > 0:
+                        old_date = new_date
 
                 if data:
                     self.remember_email_id(data['id'])
-
+        self.get_uber_emails(date=old_date.strftime(r'%Y/%m/%d'))
         logging.info("Finished downloading emails, Total: %s", len(emails))
 
 
@@ -252,6 +262,7 @@ if __name__ == "__main__":
 
     # open("16a9fd2f82d1f2ba.html", 'w').write(base64.urlsafe_b64decode(['payload']['parts'][0]['body']['data']).decode('ascii', 'ignore'))
 
-    # email = parser.gmail_api.get_emails(['15e79bcf8cf58b3f'])
+    # email = parser.gmail_api.get_emails(['163459e93aa2ed0c'])
     # uber_trip_data = list(parser.parse_uber_emails(email))
+    # parser.cleanup_data(uber_trip_data[0])
     print("Finished")

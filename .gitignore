@@ -9,4 +9,4 @@ __pycache__
 .idea
 *.csv
 error
-.txt
+*.txt
