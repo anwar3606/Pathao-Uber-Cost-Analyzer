@@ -55,11 +55,16 @@ class GmailAPI():
         logging.info("Downloading emails: %s", len(email_ids))
         response_array = []
         exception_array = []
+        global total_downloaded
+        total_downloaded = 0
 
         def callback_callable(request_idx, response, exception):
+            global total_downloaded
             if exception:
                 exception_array.append(request_idx) if request_idx not in exception_array else None
             else:
+                total_downloaded += 1
+                print("\rEmail Downloaded:", total_downloaded + 1, end="")
                 response_array.append(response)
 
         batch = self.service.new_batch_http_request(callback=callback_callable)

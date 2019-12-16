@@ -1,6 +1,6 @@
 venv
 credentials.json
-parser_log.log
+*.log
 __pycache__
 *.pyc
 *.html
