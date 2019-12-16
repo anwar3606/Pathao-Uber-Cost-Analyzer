@@ -7,3 +7,5 @@ __pycache__
 *.pickle
 .vscode
 .idea
+*.csv
+error

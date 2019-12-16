@@ -44,10 +44,10 @@ class GmailAPI():
         response = self.service.users().messages().list(**options).execute()
         emails = response['messages']
 
-        # if response.get('nextPageToken'):
-        #     options['pageToken'] = response['nextPageToken']
-        #     next_page_response = self.get_email_list(options)
-        #     emails.extend(next_page_response)
+        if response.get('nextPageToken'):
+            options['pageToken'] = response['nextPageToken']
+            next_page_response = self.get_email_list(options)
+            emails.extend(next_page_response)
 
         return emails
 
